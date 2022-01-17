@@ -19,12 +19,15 @@ pIndex(x::Number, p::Integer)::Integer = floor(Int, x*p)
 
 "
 Caclulates Hensel code as integer vector. p is a base, sz - precision.
-Asserts: x ∈ [0,1], p > 0, sz > 0.
+Asserts: x ∈ [0,1], p > 1, sz > 0.
 "
-function hVector(x::Number, p::Integer, sz::Integer)::Vector{Integer}
-    @assert(0 <= x <= 1)
-    @assert(p > 0)
+function hVector(x::Real, p::Integer, sz::Integer)::Vector{Integer}
+    @assert(0.0 <= x <= 1.0)
+    @assert(p > 1)
     @assert(sz > 0)
+    if x == 1.0 
+        return fill(p - 1, sz)
+    end
     h = Vector{Integer}(undef, sz)
     for i = 1 : sz
         n = pIndex(x, p)
@@ -45,12 +48,8 @@ end
 hVector(x::Number, (a, b)::Tuple{<:Real, <:Real}, p::Integer, sz::Integer)::Vector{Integer} = 
     hVector(x, a, b, p, sz)
 
-"Calculates integer from Hensel code vector: Σv[i]*p^i"
-iValue(v::Vector{<:Integer}, p::Integer)::Integer = 
-    foldl((s,i) -> v[i]+s*p, length(v):-1:1, init = 0)
-
 "Calculates Hensel code vector back from its integer representation"
-function iValue(n::Integer, p::Integer, sz::Integer)::Vector{Integer}
+function hVector(n::Integer, p::Integer, sz::Integer)::Vector{Integer}
     h = Vector{Integer}(undef, sz)
     for i = 1 : sz
         h[i] = n % p
@@ -59,8 +58,12 @@ function iValue(n::Integer, p::Integer, sz::Integer)::Vector{Integer}
     return h
 end
 
+"Calculates integer from Hensel code vector: Σv[i]*p^i"
+iValue(v::Vector{<:Integer}, p::Integer)::Integer = 
+    foldl((s,i) -> v[i]+s*p, length(v):-1:1, init = 0)
+
 "Calculates integer from real number x∈[a,b]"
-iValue(x::Number, p::Integer, sz::Integer, ab::Tuple{<:Number, <:Number})::Integer = 
+iValue(x::Number, ab::Tuple{<:Number, <:Number}, p::Integer, sz::Integer)::Integer = 
     iValue(hVector(x, ab, p, sz), p)
 
 "Calculates real number x∈[0,1] from Hensel code vector: Σv[i]*p^(-i)/p"
@@ -68,11 +71,11 @@ rValue(v::Vector{<:Integer}, p::Integer)::Real =
     foldl((s,i) -> v[i]+s/p, length(v):-1:1, init = p/2)/p
 
 "Calculates real number x∈[0,1] from integer"
-rValue(n::Integer, p::Integer, sz::Integer)::Real = rValue(iValue(n, p, sz), p)
+rValue(n::Integer, p::Integer, sz::Integer)::Real = rValue(hVector(n, p, sz), p)
 
 "Calculates real number x∈[a,b] from integer"
 rValue(n::Integer, p::Integer, sz::Integer, ab::Tuple{<:Number, <:Number})::Real = 
-    from01(rValue(iValue(n, p, sz), p), ab)
+    from01(rValue(hVector(n, p, sz), p), ab)
 
 
 "Envilope for calculating functions real -> real as integer -> integer"
@@ -91,11 +94,17 @@ FunEnv(f, arange, ap, asz) = FunEnv(f, arange, ap, asz, arange)
 "Direct call to the function"
 (s::FunEnv)(x::Real) = s.f(x)
 
-"Call function real -> real as integer -> integer"
-(s::FunEnv)(x::Integer) = 
-    iValue(s.f(rValue(x, s.ap, s.asz, s.arange)), s.vp, s.vsz, s.vrange)
-
-# end
+"Call function real -> real as integer -> [integer | real | vector]"
+function (s::FunEnv)(x::Integer; return_type="integer")
+    if return_type == "integer"
+        return iValue(s.f(rValue(x, s.ap, s.asz, s.arange)), s.vrange, s.vp, s.vsz)
+    elseif return_type == "hensel"
+        return hVector(s.f(rValue(x, s.ap, s.asz, s.arange)), s.vrange, s.vp, s.vsz)
+    elseif return_type == "real"
+        return s.f(rValue(x, s.ap, s.asz, s.arange))
+    end
+    throw(DomainError(return_type, "unknown keyword"))
+end
 
 end # module
 
@@ -103,5 +112,5 @@ end # module
 # or
 # pkg> activate .
 # and then
-# using Mahler
+# using Hensel
 
