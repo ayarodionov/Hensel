@@ -106,6 +106,12 @@ function (s::FunEnv)(x::Integer; return_type="integer")
     throw(DomainError(return_type, "unknown keyword"))
 end
 
+"Logistic map function. For testing. 
+See <a href=https://en.wikipedia.org/wiki/Logistic_map>Logistic map</a>"
+logistic(x::Real, r::Real) = r*x*(1.0 - x)
+
+logistic(x::Real, r::Real, n::Integer) = foldl((s,i) -> logistic(s,r), 1:(n-1), init = logistic(x,r))
+
 end # module
 
 # include("./src/Hensel.jl")
