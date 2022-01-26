@@ -95,22 +95,52 @@ FunEnv(f, arange, ap, asz) = FunEnv(f, arange, ap, asz, arange)
 (s::FunEnv)(x::Real) = s.f(x)
 
 "Call function real -> real as integer -> [integer | real | vector]"
-function (s::FunEnv)(x::Integer; return_type="integer")
+(s::FunEnv)(x::Integer; return_type::String="integer") =
+    cnvt(s, s.f(rValue(x, s.ap, s.asz, s.arange)), return_type)
+
+"Call function real, integer -> real as integer -> [integer | real | vector]"
+(s::FunEnv)(x::Integer, i::Integer; return_type::String="integer") =
+    cnvt(s, s.f(rValue(x, s.ap, s.asz, s.arange), i), return_type)
+
+(s::FunEnv)((x, i, return_type)::Tuple{Integer, Integer, String}) = 
+    (s::FunEnv)(x, i, return_type=return_type)
+
+(s::FunEnv)((x, i)::Tuple{Integer, Integer}) = (s::FunEnv)(x, i, return_type="integer")
+
+"Converts result (real number) to [integer | real | vector]"
+function cnvt(s::FunEnv, v::Real, return_type::String)
     if return_type == "integer"
-        return iValue(s.f(rValue(x, s.ap, s.asz, s.arange)), s.vrange, s.vp, s.vsz)
+        return iValue(v, s.vrange, s.vp, s.vsz)
     elseif return_type == "hensel"
-        return hVector(s.f(rValue(x, s.ap, s.asz, s.arange)), s.vrange, s.vp, s.vsz)
+        return hVector(v, s.vrange, s.vp, s.vsz)
     elseif return_type == "real"
-        return s.f(rValue(x, s.ap, s.asz, s.arange))
+        return v
     end
     throw(DomainError(return_type, "unknown keyword"))
 end
 
-"Logistic map function. For testing. 
+"Logistic map function. x∈[0,1]. For testing. 
 See <a href=https://en.wikipedia.org/wiki/Logistic_map>Logistic map</a>"
-logistic(x::Real, r::Real) = r*x*(1.0 - x)
+logistic(x::Real, r::Real)::Real = r*x*(1.0 - x)
+"n-th iteration of logictic function"
+logistic(x::Real, r::Real, n::Integer)::Real = foldl((s,i) -> logistic(s,r), 0:(n-1), init=x)
 
-logistic(x::Real, r::Real, n::Integer) = foldl((s,i) -> logistic(s,r), 1:(n-1), init = logistic(x,r))
+"Dyadic transformation. x∈[0,1] For testing. 
+See <a href=https://en.wikipedia.org/wiki/Dyadic_transformation>Dyadic transformation</a>"
+dyadic(x::Real)::Real = mod(2*x, 1)
+"n-th iteration of dyadic function"
+dyadic(x::Real, n::Integer)::Real = foldl((s,i) -> dyadic(s), 0:(n-1), init=x)
+
+"nyadic transformation. x∈[0,1] For testing."
+nyadic(x::Real, n::Integer)::Real = mod(n*x, 1)
+"k-th iteration of dyadic function"
+nyadic(x::Real, n::Integer, k::Integer)::Real = foldl((s,i) -> nyadic(s, n), 0:(k-1), init=x)
+
+"Shift operator for continued fractions. x∈[0,1]
+See <a href=http://www.linas.org/math/gkw.pdf>THE GAUSS-KUZMIN-WIRSING OPERATOR</a>"
+cfshift(x::Real)::Real = 1/x - floor(1/x)
+"n-th iteration of shift operator for continued fractions"
+cfshift(x::Real, n::Integer)::Real = foldl((s,i) -> cfshift(s), 0:(n-1), init=x)
 
 end # module
 
