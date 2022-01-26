@@ -81,8 +81,11 @@ rValue(n::Integer, p::Integer, sz::Integer, ab::Tuple{<:Number, <:Number})::Real
     from01(rValue(hVector(n, p, sz), p), ab)
 
 #--------------------------------------------------------------------------------------------------
-"Linear mapper integer or hensel coe to interval and back"
-struct LinMap{T<:Real}
+abstract type AbstractMapping end 
+
+#--------------------------------------------------------------------------------------------------
+"Linear mapper integer or hensel code to interval and back"
+struct LinMap{T<:Real} <: AbstractMapping 
     ab::Tuple{T, T}     # interval
     p::Integer          # p-adic base
     sz::Integer         # p-adic precision 
@@ -108,10 +111,10 @@ end
 
 #--------------------------------------------------------------------------------------------------
 "Envilope for calculating functions real -> real as integer -> integer"
-struct FunEnv{T1<:Real, T2<:Real}
+struct FunEnv{T1<:AbstractMapping, T2<:AbstractMapping}
     f::Function         # function
-    marg::LinMap{T1}    # argument map
-    mval::LinMap{T2}    # value map
+    marg::T1            # argument map
+    mval::T2            # value map
 end
 FunEnv(f, arange, ap, asz, vrange, vp, vsz) = FunEnv(f, LinMap(arange, ap, asz), LinMap(vrange, vp, vsz))
 FunEnv(f, arange, ap, asz, vrange) = FunEnv(f, arange, ap, asz, vrange, ap, asz)
