@@ -1,7 +1,10 @@
+#--------------------------------------------------------------------------------------------------
 "Collection of functions for mapping Number numbers to Hensel code."
+#--------------------------------------------------------------------------------------------------
 module Hensel
 export pIndex, hVector
 
+#--------------------------------------------------------------------------------------------------
 "Linear mapping x from [a,b] to y ∈ [0,1]. x ∈ [a,b]."
 to01(x::Number, a::Number, b::Number)::Number             = (x-a)/(b-a)
 to01(x::Number, (a,b)::Tuple{<:Number, <:Number})::Number = (x-a)/(b-a)
@@ -77,17 +80,40 @@ rValue(n::Integer, p::Integer, sz::Integer)::Real = rValue(hVector(n, p, sz), p)
 rValue(n::Integer, p::Integer, sz::Integer, ab::Tuple{<:Number, <:Number})::Real = 
     from01(rValue(hVector(n, p, sz), p), ab)
 
-
-"Envilope for calculating functions real -> real as integer -> integer"
-struct FunEnv{T1<:Number, T2<:Number}
-    f::Function                # function
-    arange::Tuple{T1, T1}      # argument range
-    ap::Integer                # argument base
-    asz::Integer               # argument precision 
-    vrange::Tuple{T2, T2}      # function value range
-    vp::Integer                # value base
-    vsz::Integer               # value precision 
+#--------------------------------------------------------------------------------------------------
+"Linear mapper integer or hensel coe to interval and back"
+struct LinMap{T<:Real}
+    ab::Tuple{T, T}     # interval
+    p::Integer          # p-adic base
+    sz::Integer         # p-adic precision 
 end
+
+"Maps integer to point in [a,b]"
+(s::LinMap)(n::Integer) = rValue(n, s.p, s.sz, s.ab)
+
+"Maps hensel code to point in [a,b]"
+(s::LinMap)(v::Vector{<:Integer}) = from01(rValue(v, s.p), s.ab)
+
+"Maps x∈[0,1] to integer, hensel code (integer vector) or real number"
+function (s::LinMap)(x::Real; return_type="integer")
+    if return_type == "integer"
+        return iValue(x, s.ab, s.p, s.sz)
+    elseif return_type == "hensel"
+        return hVector(x, s.ab, s.p, s.sz)
+    elseif return_type == "real"
+        return x
+    end
+    throw(DomainError(return_type, "unknown keyword"))
+end
+
+#--------------------------------------------------------------------------------------------------
+"Envilope for calculating functions real -> real as integer -> integer"
+struct FunEnv{T1<:Real, T2<:Real}
+    f::Function         # function
+    marg::LinMap{T1}    # argument map
+    mval::LinMap{T2}    # value map
+end
+FunEnv(f, arange, ap, asz, vrange, vp, vsz) = FunEnv(f, LinMap(arange, ap, asz), LinMap(vrange, vp, vsz))
 FunEnv(f, arange, ap, asz, vrange) = FunEnv(f, arange, ap, asz, vrange, ap, asz)
 FunEnv(f, arange, ap, asz) = FunEnv(f, arange, ap, asz, arange)
 
@@ -96,28 +122,18 @@ FunEnv(f, arange, ap, asz) = FunEnv(f, arange, ap, asz, arange)
 
 "Call function real -> real as integer -> [integer | real | vector]"
 (s::FunEnv)(x::Integer; return_type::String="integer") =
-    cnvt(s, s.f(rValue(x, s.ap, s.asz, s.arange)), return_type)
+    s.mval(s.f(s.marg(x)), return_type=return_type)
 
 "Call function real, integer -> real as integer -> [integer | real | vector]"
 (s::FunEnv)(x::Integer, i::Integer; return_type::String="integer") =
-    cnvt(s, s.f(rValue(x, s.ap, s.asz, s.arange), i), return_type)
+    s.mval(s.f(s.marg(x), i), return_type=return_type)
 
 (s::FunEnv)((x, i, return_type)::Tuple{Integer, Integer, String}) = 
     (s::FunEnv)(x, i, return_type=return_type)
 
 (s::FunEnv)((x, i)::Tuple{Integer, Integer}) = (s::FunEnv)(x, i, return_type="integer")
 
-"Converts result (real number) to [integer | real | vector]"
-function cnvt(s::FunEnv, v::Real, return_type::String)
-    if return_type == "integer"
-        return iValue(v, s.vrange, s.vp, s.vsz)
-    elseif return_type == "hensel"
-        return hVector(v, s.vrange, s.vp, s.vsz)
-    elseif return_type == "real"
-        return v
-    end
-    throw(DomainError(return_type, "unknown keyword"))
-end
+#--------------------------------------------------------------------------------------------------
 
 "Logistic map function. x∈[0,1]. For testing. 
 See <a href=https://en.wikipedia.org/wiki/Logistic_map>Logistic map</a>"
@@ -144,9 +160,12 @@ cfshift(x::Real, n::Integer)::Real = foldl((s,i) -> cfshift(s), 0:(n-1), init=x)
 
 end # module
 
+#--------------------------------------------------------------------------------------------------
+
 # include("./src/Hensel.jl")
 # or
 # pkg> activate .
 # and then
 # using Hensel
 
+#--------------------------------------------------------------------------------------------------
