@@ -14,12 +14,16 @@ using Hensel
 @test Hensel.to01(-1.3, -2, -1) ≈  0.7
 @test Hensel.to01(-1.7, -2, -1) ≈  0.3
 
+@test Hensel.to01(3//2, 1, 2) == 1//2
+
 @test Hensel.to01(0.5, (0, 1))    == 0.5
 @test Hensel.to01(1.5, (1, 2))    == 0.5
 @test Hensel.to01(1.3, (1, 2))    ≈  0.3
 @test Hensel.to01(1.7, (1, 2))    ≈  0.7
 @test Hensel.to01(-1.3, (-2, -1)) ≈  0.7
 @test Hensel.to01(-1.7, (-2, -1)) ≈  0.3
+
+@test Hensel.from01(1//2, 1, 2) == 3//2
 
 @test Hensel.from01(0.5, 0, 1)   == 0.5
 @test Hensel.from01(0.5, 1, 2)   == 1.5
@@ -293,7 +297,9 @@ dTest(0.999, 3, 14)
 @test Hensel.FunEnv((x) -> 3*x+2, (0, 1), 2, 5, (2, 5)).(0:9) == 0:9
 
 @test Hensel.hVector(0.25, 3, 5) == [0,2,0,2,0]
+@test Hensel.hVector(1//4, 3, 5) == [0,2,0,2,0]
 @test Hensel.iValue(Hensel.hVector(0.25, 3, 5), 3) == 60
+@test Hensel.iValue(Hensel.hVector(1//4, 3, 5), 3) == 60
 @test Hensel.FunEnv((x) -> 3*x+2, (0, 1), 3, 5, (2, 5))(60) == 60
 @test Hensel.FunEnv((x) -> 3*x+2, (0, 1), 3, 5, (2, 5))(60, return_type="hensel") == [0,2,0,2,0]
 @test Hensel.FunEnv((x) -> 3*x+2, (0, 1), 3, 5, (2, 5))(60, return_type="real") == 2.746913580246914

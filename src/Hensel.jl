@@ -5,27 +5,58 @@ module Hensel
 export pIndex, hVector
 
 #--------------------------------------------------------------------------------------------------
-"Linear mapping x from [a,b] to y ∈ [0,1]. x ∈ [a,b]."
+# Linear mapping 
+#--------------------------------------------------------------------------------------------------
+"Linear mapping x ∈ [a,b] to y ∈ [0,1]. ."
 to01(x::Number, a::Number, b::Number)::Number             = (x-a)/(b-a)
 to01(x::Number, (a,b)::Tuple{<:Number, <:Number})::Number = (x-a)/(b-a)
 
-"Linear mapping x ∈ [0,1] to y ∈ [a,b]. x ∈ [0,1]."
+"Linear mapping x ∈ [0,1] to y ∈ [a,b]."
 from01(x::Number, a::Number, b::Number)::Number              = x*(b-a)+a
 from01(x::Number, (a, b)::Tuple{<:Number, <:Number})::Number = x*(b-a)+a
 
-"
-Suppose [0,1] is diveded into p equal length intervals. Function retuns index
-of the interval to which x belongs to. Indexation starts from 0 (zero).
-x ∈ [0,1].
-"
+#--------------------------------------------------------------------------------------------------
+# Functions on [a,b]
+#--------------------------------------------------------------------------------------------------
+
+"Caclulates Hensel code as integer vector. p is p-adic base, sz - precision.
+Asserts: x ∈ [a,b], p > 0, sz > 0."
+function hVector(x::Number, a::Number, b::Number, p::Integer, sz::Integer)::Vector{Integer}
+    @assert(a <= x <= b)
+    return hVector(to01(x, a, b), p, sz)
+end
+
+hVector(x::Number, (a, b)::Tuple{<:Real, <:Real}, p::Integer, sz::Integer)::Vector{Integer} = 
+    hVector(x, a, b, p, sz)
+
+"Calculates integer from real number x∈[a,b]"
+iValue(x::Number, ab::Tuple{<:Number, <:Number}, p::Integer, sz::Integer)::Integer = 
+    iValue(hVector(x, ab, p, sz), p)
+
+"Calculates real number x∈[a,b] from integer"
+rValue(n::Integer, p::Integer, sz::Integer, ab::Tuple{<:Number, <:Number})::Number = 
+    from01(rValue(hVector(n, p, sz), p), ab)
+
+#--------------------------------------------------------------------------------------------------
+# Functions on [0,1]
+#--------------------------------------------------------------------------------------------------
+
+"Calculates real number x∈[0,1] from Hensel code vector: Σv[i]*p^(-i)/p"
+rValue(v::Vector{<:Integer}, p::Integer)::Real = 
+    foldl((s,i) -> v[i]+s/p, length(v):-1:1, init = p/2)/p
+
+"Calculates real number x∈[0,1] from integer"
+rValue(n::Integer, p::Integer, sz::Integer)::Real = rValue(hVector(n, p, sz), p)
+
+"Suppose [0,1] is diveded into p inervals of equal length. 
+Function retuns index of the interval to which x belongs to. 
+Indexation starts from 0 (zero). x ∈ [0,1]."
 pIndex(x::Number, p::Integer)::Integer = floor(Int, x*p)
 
-"
-Caclulates Hensel code as integer vector. p is a base, sz - precision.
-Asserts: x ∈ [0,1], p > 1, sz > 0.
-"
-function hVector(x::Real, p::Integer, sz::Integer)::Vector{Integer}
-    @assert(0.0 <= x <= 1.0)
+"Caclulates Hensel code as integer vector. p is a base, sz - precision.
+Asserts: x ∈ [0,1], p > 1, sz > 0."
+function hVector(x::Number, p::Integer, sz::Integer)::Vector{Integer}
+    @assert(0 <= x <= 1)
     @assert(p > 1)
     @assert(sz > 0)
     if x == 1.0 
@@ -39,17 +70,6 @@ function hVector(x::Real, p::Integer, sz::Integer)::Vector{Integer}
     end
     return h
 end
-
-"
-Caclulates Hensel code as integer vector. p is a base, sz - precision.
-Asserts: x ∈ [a,b], p > 0, sz > 0.
-"
-function hVector(x::Number, a::Number, b::Number, p::Integer, sz::Integer)::Vector{Integer}
-    @assert(a <= x <= b)
-    return hVector(to01(x, a, b), p, sz)
-end
-hVector(x::Number, (a, b)::Tuple{<:Real, <:Real}, p::Integer, sz::Integer)::Vector{Integer} = 
-    hVector(x, a, b, p, sz)
 
 "Calculates Hensel code vector back from its integer representation"
 function hVector(n::Integer, p::Integer, sz::Integer)::Vector{Integer}
@@ -65,27 +85,12 @@ end
 iValue(v::Vector{<:Integer}, p::Integer)::Integer = 
     foldl((s,i) -> v[i]+s*p, length(v):-1:1, init = 0)
 
-"Calculates integer from real number x∈[a,b]"
-iValue(x::Number, ab::Tuple{<:Number, <:Number}, p::Integer, sz::Integer)::Integer = 
-    iValue(hVector(x, ab, p, sz), p)
-
-"Calculates real number x∈[0,1] from Hensel code vector: Σv[i]*p^(-i)/p"
-rValue(v::Vector{<:Integer}, p::Integer)::Real = 
-    foldl((s,i) -> v[i]+s/p, length(v):-1:1, init = p/2)/p
-
-"Calculates real number x∈[0,1] from integer"
-rValue(n::Integer, p::Integer, sz::Integer)::Real = rValue(hVector(n, p, sz), p)
-
-"Calculates real number x∈[a,b] from integer"
-rValue(n::Integer, p::Integer, sz::Integer, ab::Tuple{<:Number, <:Number})::Real = 
-    from01(rValue(hVector(n, p, sz), p), ab)
-
 #--------------------------------------------------------------------------------------------------
 abstract type AbstractMapping end 
 
 #--------------------------------------------------------------------------------------------------
 "Linear mapper integer or hensel code to interval and back"
-struct LinMap{T<:Real} <: AbstractMapping 
+struct LinMap{T<:Number} <: AbstractMapping 
     ab::Tuple{T, T}     # interval
     p::Integer          # p-adic base
     sz::Integer         # p-adic precision 
@@ -97,12 +102,17 @@ end
 "Maps hensel code to point in [a,b]"
 (s::LinMap)(v::Vector{<:Integer}) = from01(rValue(v, s.p), s.ab)
 
-"Maps x∈[0,1] to integer, hensel code (integer vector) or real number"
-function (s::LinMap)(x::Real; return_type="integer")
+"Maps x∈[a,b] to integer"
+(s::LinMap)(x::Number)::Integer = iValue(x, s.ab, s.p, s.sz)
+
+"Maps x∈[a,b] to integer, hensel code (integer vector), rational or real number"
+function (s::LinMap)(x::Number; return_type)
     if return_type == "integer"
         return iValue(x, s.ab, s.p, s.sz)
     elseif return_type == "hensel"
         return hVector(x, s.ab, s.p, s.sz)
+    elseif return_type == "rational"
+        return Rational(x)
     elseif return_type == "real"
         return x
     end
@@ -136,6 +146,8 @@ FunEnv(f, arange, ap, asz) = FunEnv(f, arange, ap, asz, arange)
 
 (s::FunEnv)((x, i)::Tuple{Integer, Integer}) = (s::FunEnv)(x, i, return_type="integer")
 
+#--------------------------------------------------------------------------------------------------
+# Additional functions
 #--------------------------------------------------------------------------------------------------
 
 "Logistic map function. x∈[0,1]. For testing. 
