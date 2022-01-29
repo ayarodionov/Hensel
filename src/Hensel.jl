@@ -86,8 +86,12 @@ iValue(v::Vector{<:Integer}, p::Integer)::Integer =
     foldl((s,i) -> v[i]+s*p, length(v):-1:1, init = 0)
 
 #--------------------------------------------------------------------------------------------------
+# Abstruct type
+#--------------------------------------------------------------------------------------------------
 abstract type AbstractMapping end 
 
+#--------------------------------------------------------------------------------------------------
+# LinMap
 #--------------------------------------------------------------------------------------------------
 "Linear mapper integer or hensel code to interval and back"
 struct LinMap{T<:Number} <: AbstractMapping 
@@ -120,6 +124,8 @@ function (s::LinMap)(x::Number; return_type)
 end
 
 #--------------------------------------------------------------------------------------------------
+# FunEnv
+#--------------------------------------------------------------------------------------------------
 "Envilope for calculating functions real -> real as integer -> integer"
 struct FunEnv{T1<:AbstractMapping, T2<:AbstractMapping}
     f::Function         # function
@@ -133,11 +139,11 @@ FunEnv(f, arange, ap, asz) = FunEnv(f, arange, ap, asz, arange)
 "Direct call to the function"
 (s::FunEnv)(x::Real) = s.f(x)
 
-"Call function real -> real as integer -> [integer | real | vector]"
+"Call function real -> real as integer -> [integer | vector | real | rational]"
 (s::FunEnv)(x::Integer; return_type::String="integer") =
     s.mval(s.f(s.marg(x)), return_type=return_type)
 
-"Call function real, integer -> real as integer -> [integer | real | vector]"
+"Call function real, integer -> real as integer -> [integer | vector | real | rational]"
 (s::FunEnv)(x::Integer, i::Integer; return_type::String="integer") =
     s.mval(s.f(s.marg(x), i), return_type=return_type)
 
