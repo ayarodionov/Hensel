@@ -2,6 +2,7 @@
 "Collection of functions for mapping Number numbers to Hensel code."
 #--------------------------------------------------------------------------------------------------
 module Hensel
+using Mahler
 export pIndex, hVector
 
 #--------------------------------------------------------------------------------------------------
@@ -107,10 +108,10 @@ end
 (s::LinMap)(v::Vector{<:Integer}) = from01(rValue(v, s.p), s.ab)
 
 "Maps x∈[a,b] to integer"
-(s::LinMap)(x::Number)::Integer = iValue(x, s.ab, s.p, s.sz)
+# (s::LinMap)(x::Number)::Integer = iValue(x, s.ab, s.p, s.sz)
 
 "Maps x∈[a,b] to integer, hensel code (integer vector), rational or real number"
-function (s::LinMap)(x::Number; return_type)
+function (s::LinMap)(x::Number; return_type::String="integer")
     if return_type == "integer"
         return iValue(x, s.ab, s.p, s.sz)
     elseif return_type == "hensel"
@@ -126,7 +127,7 @@ end
 #--------------------------------------------------------------------------------------------------
 # FunEnv
 #--------------------------------------------------------------------------------------------------
-"Envilope for calculating functions real -> real as integer -> integer"
+"Envelope for calculating functions real -> real as integer -> integer"
 struct FunEnv{T1<:AbstractMapping, T2<:AbstractMapping}
     f::Function         # function
     marg::T1            # argument map
@@ -151,6 +152,27 @@ FunEnv(f, arange, ap, asz) = FunEnv(f, arange, ap, asz, arange)
     (s::FunEnv)(x, i, return_type=return_type)
 
 (s::FunEnv)((x, i)::Tuple{Integer, Integer}) = (s::FunEnv)(x, i, return_type="integer")
+
+"For testing how good FunEnv approximates its function"
+δ(fe::FunEnv, x::Real) = fe(x) - fe(fe.marg(x), return_type="real")
+δ(x::Real, fe::FunEnv) = fe.mval(fe(x)) - fe(fe.marg(x))
+
+#--------------------------------------------------------------------------------------------------
+# MahEnv
+#--------------------------------------------------------------------------------------------------
+"Envelope Mahler expansion"
+struct MahEnv{T1<:AbstractMapping, T2<:AbstractMapping}
+    v::Vector           # vector of Mahler coefficients
+    marg::T1            # argument map
+    mval::T2            # value map
+end
+
+"Direct call to the function"
+(s::MahEnv)(n::Integer) = Mahler.mval(n, s.v)
+
+
+(s::MahEnv)(x::Real) = s.mval(Mahler.mval(s.marg(n), s.v))
+
 
 #--------------------------------------------------------------------------------------------------
 # Additional functions
