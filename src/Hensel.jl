@@ -160,18 +160,36 @@ FunEnv(f, arange, ap, asz) = FunEnv(f, arange, ap, asz, arange)
 #--------------------------------------------------------------------------------------------------
 # MahEnv
 #--------------------------------------------------------------------------------------------------
-"Envelope Mahler expansion"
-struct MahEnv{T1<:AbstractMapping, T2<:AbstractMapping}
-    v::Vector           # vector of Mahler coefficients
-    marg::T1            # argument map
-    mval::T2            # value map
+"Calculates Mahler expansion of function f of length n"
+mexpansion(fe::FunEnv, n::Integer)::Vector = Mahler.mexpansion((x) -> fe(x), n)
+
+"Envelope for Mahler expansion"
+struct MahEnv
+    fe::FunEnv          # mapping function to integer                 
+    mv::Vector          # vector of Mahler coefficients
+end
+MahEnv(fe::FunEnv) = MahEnv(fe, mexpansion(fe, fe.marg.sz))
+MahEnv(fe::FunEnv, n::Integer) = MahEnv(fe, mexpansion(fe, n))
+
+"Calulation from Mahler expansion"
+(s::MahEnv)(n::Integer) = Mahler.mval(n, s.mv)
+(s::MahEnv)(n::Integer, m::Integer) = Mahler.mval(n, s.mv, m)
+"Optional calculation - can use Mahler, extension of FunEnv call"
+function (s::MahEnv)(n::Integer, option::String)
+    if option == "Mahler"
+        return Mahler.mval(n, s.mv)
+    elseif option == "Hensel"
+        return (s.fe)(n)
+    end
+    throw(DomainError(option, "unknown keyword"))
 end
 
-"Direct call to the function"
-(s::MahEnv)(n::Integer) = Mahler.mval(n, s.v)
+(s::MahEnv)(x::Real) = Mahler.mval(s.fe.marg(x), s.mv)
+(s::MahEnv)(x::Real, m::Integer) = Mahler.mval(s.fe.marg(x), s.mv, m)
 
 
-(s::MahEnv)(x::Real) = s.mval(Mahler.mval(s.marg(n), s.v))
+δ(se::MahEnv, n::Integer) = (se)(n) - (se)(n, "Hensel")
+δ(se::MahEnv, n::Integer, k::Integer) = (se)(n, k) - (se)(n, "Hensel")
 
 
 #--------------------------------------------------------------------------------------------------
